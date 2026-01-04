@@ -1,0 +1,7 @@
+{
+  "name": "TrustioWallet - The Global Trusted Wallet",
+  "description": "A modern, secure, and mobile-responsive cryptocurrency wallet application featuring real authentication simulation, investment tracking, and asset management.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
