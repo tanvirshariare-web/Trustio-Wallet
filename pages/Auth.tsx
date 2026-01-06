@@ -3,6 +3,7 @@ import { User, Lock, Mail, Key, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { User as UserType } from '../types';
+import { getCharityAvatar } from '../App'; // Importing the helper
 
 interface AuthProps {
   onLogin: (user: UserType) => void;
@@ -79,6 +80,7 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, users, onRegister }) => {
       return;
     }
 
+    // Assign Charity Avatar here
     const newUser: UserType = {
       username: cleanUsername,
       email: cleanEmail,
@@ -86,7 +88,8 @@ export const Auth: React.FC<AuthProps> = ({ onLogin, users, onRegister }) => {
       secretKey: formData.secretKey,
       totalAssets: 0,
       monthlyYield: 0,
-      transactions: []
+      transactions: [],
+      avatar: getCharityAvatar(cleanUsername) // Auto-assign avatar
     };
 
     onRegister(newUser);

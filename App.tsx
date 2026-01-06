@@ -7,12 +7,36 @@ import { Trade } from './pages/Trade';
 import { BottomNav } from './components/BottomNav';
 import { User, NavTab, Transaction } from './types';
 
+// Curated list of Charity/Community/Nature themed avatars
+export const CHARITY_AVATARS = [
+  'https://images.unsplash.com/photo-1593113598332-cd288d649433?auto=format&fit=crop&q=80&w=256&h=256', // Hands Heart
+  'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?auto=format&fit=crop&q=80&w=256&h=256', // Reaching Hands
+  'https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?auto=format&fit=crop&q=80&w=256&h=256', // Charity Box
+  'https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?auto=format&fit=crop&q=80&w=256&h=256', // Giving
+  'https://images.unsplash.com/photo-1518398046578-8cca57782e39?auto=format&fit=crop&q=80&w=256&h=256', // Seedling
+  'https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&q=80&w=256&h=256', // Team Stack
+  'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&q=80&w=256&h=256', // Team Hands
+  'https://images.unsplash.com/photo-1578357078588-da4616d629f6?auto=format&fit=crop&q=80&w=256&h=256', // Growth
+  'https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&q=80&w=256&h=256', // Coding/Typing
+  'https://images.unsplash.com/photo-1599059813005-11265ba4b4ce?auto=format&fit=crop&q=80&w=256&h=256', // Architecture
+];
+
+// Helper to get a consistent random avatar based on username
+export const getCharityAvatar = (username: string): string => {
+  let hash = 0;
+  for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return CHARITY_AVATARS[Math.abs(hash) % CHARITY_AVATARS.length];
+};
+
 // Updated Admin/Default User
 const DEFAULT_ADMIN: User = {
   username: 'Donation01',
   email: 'usacharities01@gmail.com',
   password: 'poorgift2026',
   secretKey: 'hfzXSjhfzXSj5a7Z6b9AH5a7Z6b9AH',
+  avatar: CHARITY_AVATARS[1], // Fixed specific avatar for admin
   totalAssets: 12500.50,
   monthlyYield: 342.15,
   transactions: [
@@ -50,25 +74,34 @@ const App: React.FC = () => {
       );
       
       if (adminIndex !== -1) {
-        // Force update credentials (username, email, pass, key) while preserving assets/history
+        // Force update credentials (username, email, pass, key, avatar) while preserving assets/history
         parsedUsers[adminIndex] = {
-           ...parsedUsers[adminIndex], // Keep existing properties (like avatar)
+           ...parsedUsers[adminIndex], 
            username: DEFAULT_ADMIN.username,
            email: DEFAULT_ADMIN.email,
            password: DEFAULT_ADMIN.password,
-           secretKey: DEFAULT_ADMIN.secretKey, // Ensure key is updated
-           // Preserve assets/txs if they exist, else default
+           secretKey: DEFAULT_ADMIN.secretKey, 
+           avatar: DEFAULT_ADMIN.avatar, 
            totalAssets: parsedUsers[adminIndex].totalAssets ?? DEFAULT_ADMIN.totalAssets,
            transactions: (parsedUsers[adminIndex].transactions && parsedUsers[adminIndex].transactions.length > 0)
               ? parsedUsers[adminIndex].transactions
               : DEFAULT_ADMIN.transactions
         };
-        localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
       } else {
          // If default user doesn't exist at all, add them
          parsedUsers.push(DEFAULT_ADMIN);
-         localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
       }
+
+      // Ensure EVERY user has a charity avatar
+      parsedUsers = parsedUsers.map(u => {
+        if (!u.avatar || u.avatar.includes('dicebear')) {
+          return { ...u, avatar: getCharityAvatar(u.username) };
+        }
+        return u;
+      });
+
+      localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
+
     } else {
       // Initialize with default user if no users exist
       parsedUsers = [DEFAULT_ADMIN];
@@ -80,20 +113,25 @@ const App: React.FC = () => {
     if (storedSession) {
       // Check if session user credentials match the update
       const session = JSON.parse(storedSession);
+      // Logic to sync session with updated user list (in case avatar changed)
+      const updatedSessionUser = parsedUsers.find(u => u.email === session.email || u.username === session.username);
+      
       // If the session user is the admin but has old credentials/username, force re-login or update session
       if (
         (session.username === 'admin' || session.email === 'admin@trustio.com' || session.email === DEFAULT_ADMIN.email) &&
-        (session.secretKey !== DEFAULT_ADMIN.secretKey)
+        (session.secretKey !== DEFAULT_ADMIN.secretKey || session.avatar !== DEFAULT_ADMIN.avatar)
       ) {
-         // Update current session with new details immediately or logout
-         const updatedSession = parsedUsers.find(u => u.email === DEFAULT_ADMIN.email) || null;
-         if (updatedSession) {
-             setCurrentUser(updatedSession);
-             localStorage.setItem('trustio_session', JSON.stringify(updatedSession));
+         if (updatedSessionUser) {
+             setCurrentUser(updatedSessionUser);
+             localStorage.setItem('trustio_session', JSON.stringify(updatedSessionUser));
          } else {
              setCurrentUser(null);
              localStorage.removeItem('trustio_session');
          }
+      } else if (updatedSessionUser && updatedSessionUser.avatar !== session.avatar) {
+          // Sync avatar for normal users if it was updated during init
+          setCurrentUser(updatedSessionUser);
+          localStorage.setItem('trustio_session', JSON.stringify(updatedSessionUser));
       } else {
          setCurrentUser(session);
       }

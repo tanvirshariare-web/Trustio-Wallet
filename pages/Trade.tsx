@@ -31,7 +31,11 @@ import {
   Database,
   Search,
   ExternalLink,
-  ShieldAlert
+  ShieldAlert,
+  Share2,
+  Heart,
+  Palette,
+  Users
 } from 'lucide-react';
 import { User } from '../types';
 import jsQR from 'jsqr';
@@ -60,7 +64,7 @@ const NETWORK_STYLES: Record<string, string> = {
 export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, canGoBack }) => {
   // Gift Logic State
   const [giftMode, setGiftMode] = useState<'fixed' | 'lucky'>('fixed');
-  const [giftStep, setGiftStep] = useState<'create' | 'success'>('create');
+  const [giftStep, setGiftStep] = useState<'create' | 'preview' | 'success'>('create');
   const [selectedTheme, setSelectedTheme] = useState('classic');
   const [giftAmount, setGiftAmount] = useState('');
   const [recipientCount, setRecipientCount] = useState('1');
@@ -70,10 +74,6 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
 
   // Restriction Alert State
   const [showRestriction, setShowRestriction] = useState(false);
-
-  // Claim Preview State
-  const [showClaimPreview, setShowClaimPreview] = useState(false);
-  const [claimStage, setClaimStage] = useState<'closed' | 'opening' | 'opened'>('closed');
 
   // Deposit Logic State
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -104,10 +104,12 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
   const [timeLeft, setTimeLeft] = useState(900); // 15 minutes
 
   const themes = [
-    { id: 'classic', label: 'Trustio Red', from: 'from-red-500', to: 'to-orange-600', icon: '🧧' },
-    { id: 'birthday', label: 'Birthday', from: 'from-pink-500', to: 'to-rose-500', icon: '🎂' },
-    { id: 'eid', label: 'Eid Mubarak', from: 'from-emerald-500', to: 'to-teal-500', icon: '🌙' },
-    { id: 'festival', label: 'Festival', from: 'from-violet-500', to: 'to-purple-500', icon: '🎉' },
+    { id: 'classic', label: 'Trustio Red', from: 'from-red-600', to: 'to-orange-600', icon: '🧧', textColor: 'text-white' },
+    { id: 'blue', label: 'Ocean Blue', from: 'from-blue-500', to: 'to-cyan-400', icon: '🌊', textColor: 'text-white' },
+    { id: 'gold', label: 'Luxury Gold', from: 'from-amber-400', to: 'to-yellow-600', icon: '👑', textColor: 'text-slate-900' },
+    { id: 'love', label: 'With Love', from: 'from-pink-500', to: 'to-rose-500', icon: '❤️', textColor: 'text-white' },
+    { id: 'nature', label: 'Green Life', from: 'from-emerald-500', to: 'to-teal-500', icon: '🌱', textColor: 'text-white' },
+    { id: 'galaxy', label: 'Galaxy', from: 'from-indigo-600', to: 'to-purple-700', icon: '🚀', textColor: 'text-white' },
   ];
 
   // Timer Effect
@@ -192,7 +194,13 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handlePreviewGift = () => {
+    if (!giftAmount || Number(giftAmount) <= 0) return;
+    setGiftStep('preview');
+  };
+
   const handleCreateGift = () => {
+    // Check balance logic here if needed, assuming sufficient balance for demo
     const uniqueId = Math.random().toString(36).substring(7);
     setGeneratedLink(`https://trustio.app/claim/${uniqueId}`);
     setGiftStep('success');
@@ -204,21 +212,27 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'You received a Crypto Gift!',
+          text: `I sent you ${giftAmount} USDT via Trustio! Claim it here:`,
+          url: generatedLink,
+        });
+      } catch (error) {
+        console.log('Error sharing:', error);
+      }
+    } else {
+      handleCopyLink();
+    }
+  };
+
   const resetGift = () => {
     setGiftStep('create');
     setGiftAmount('');
     setGiftMessage('');
     setRecipientCount('1');
-  };
-
-  const openClaimPreview = () => {
-    setClaimStage('closed');
-    setShowClaimPreview(true);
-  };
-
-  const handleOpenGift = () => {
-    setClaimStage('opening');
-    setTimeout(() => setClaimStage('opened'), 800);
   };
 
   // --- Real-time Verification Logic ---
@@ -404,7 +418,7 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
       </div>
 
       {/* Gift Section */}
-      <div className={`relative mb-8 rounded-[2.5rem] overflow-hidden transition-all duration-500 ${giftStep === 'success' ? 'bg-slate-900' : 'bg-gradient-to-br from-rose-50 to-pink-50 dark:from-slate-900 dark:to-slate-800'} border border-rose-100 dark:border-slate-700 shadow-xl shadow-rose-500/5`}>
+      <div className={`relative mb-8 rounded-[2.5rem] overflow-hidden transition-all duration-500 ${giftStep === 'success' || giftStep === 'preview' ? 'bg-slate-900' : 'bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-900 dark:to-slate-800'} border border-indigo-100 dark:border-slate-700 shadow-xl shadow-indigo-500/5`}>
         <div className="relative z-10 p-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2.5">
@@ -412,42 +426,179 @@ export const Trade: React.FC<TradeProps> = ({ user, onReceive, onSend, onBack, c
                 {giftMode === 'fixed' ? <Gift size={20} /> : <MailOpen size={20} />}
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white leading-none">
-                  {giftStep === 'create' ? 'Send Crypto Gift' : 'Gift Created!'}
+                <h3 className={`text-lg font-black leading-none ${giftStep !== 'create' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+                  {giftStep === 'create' ? 'Send Crypto Gift' : giftStep === 'preview' ? 'Preview Gift' : 'Gift Created!'}
                 </h3>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1">
-                  {giftStep === 'create' ? 'Share the joy of crypto' : 'Ready to share'}
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mt-1">
+                  {giftStep === 'create' ? 'Share the joy of crypto' : giftStep === 'preview' ? 'Check before sending' : 'Ready to share'}
                 </p>
               </div>
             </div>
+            {giftStep !== 'create' && (
+                <button onClick={() => setGiftStep('create')} className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors">
+                    <X size={18} />
+                </button>
+            )}
           </div>
 
+          {/* CREATE STEP */}
           {giftStep === 'create' && (
             <div className="animate-in slide-in-from-bottom-4 duration-300 space-y-5">
-              <div className="flex bg-white dark:bg-slate-950/50 p-1 rounded-xl border border-rose-100 dark:border-slate-700">
-                <button onClick={() => setGiftMode('fixed')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${giftMode === 'fixed' ? `bg-gradient-to-r ${activeThemeObj.from} ${activeThemeObj.to} text-white shadow-md` : 'text-slate-500'}`}>
+              {/* Type Selector */}
+              <div className="flex bg-white dark:bg-slate-950/50 p-1 rounded-xl border border-indigo-100 dark:border-slate-700">
+                <button 
+                  onClick={() => setGiftMode('fixed')} 
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${giftMode === 'fixed' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500'}`}
+                >
                   <Gift size={14} /> Gift Card
                 </button>
-                <button onClick={() => setGiftMode('lucky')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${giftMode === 'lucky' ? `bg-gradient-to-r ${activeThemeObj.from} ${activeThemeObj.to} text-white shadow-md` : 'text-slate-500'}`}>
+                <button 
+                  onClick={() => setGiftMode('lucky')} 
+                  className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${giftMode === 'lucky' ? 'bg-rose-500 text-white shadow-md shadow-rose-500/30' : 'text-slate-500'}`}
+                >
                   <MailOpen size={14} /> Red Envelope
                 </button>
               </div>
-              <div className="space-y-3">
-                <input type="number" placeholder="Amount" value={giftAmount} onChange={(e) => setGiftAmount(e.target.value)} className="w-full px-4 py-3.5 bg-white dark:bg-slate-950 border rounded-xl font-bold" />
-                <input type="text" placeholder="Message" value={giftMessage} onChange={(e) => setGiftMessage(e.target.value)} className="w-full px-4 py-3.5 bg-white dark:bg-slate-900 border rounded-xl" />
+
+              {/* Theme Selector */}
+              <div>
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Select Theme</p>
+                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                    {themes.map(theme => (
+                        <button 
+                          key={theme.id}
+                          onClick={() => setSelectedTheme(theme.id)}
+                          className={`flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br ${theme.from} ${theme.to} flex items-center justify-center text-xl shadow-sm transition-transform ${selectedTheme === theme.id ? 'ring-4 ring-offset-2 ring-indigo-500 scale-110' : 'opacity-70 hover:opacity-100 hover:scale-105'}`}
+                        >
+                            {theme.icon}
+                        </button>
+                    ))}
+                 </div>
               </div>
-              <button onClick={handleCreateGift} disabled={!giftAmount} className={`w-full py-4 rounded-xl font-black text-white bg-gradient-to-r ${activeThemeObj.from} ${activeThemeObj.to}`}>Generate Gift</button>
+
+              {/* Inputs */}
+              <div className="space-y-3">
+                 <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                    <input 
+                        type="number" 
+                        placeholder="Amount (USDT)" 
+                        value={giftAmount} 
+                        onChange={(e) => setGiftAmount(e.target.value)} 
+                        className="w-full pl-8 pr-4 py-3.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 outline-none" 
+                    />
+                 </div>
+
+                 {giftMode === 'lucky' && (
+                    <div className="relative">
+                        <Users size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                            type="number" 
+                            placeholder="Number of Recipients" 
+                            value={recipientCount} 
+                            onChange={(e) => setRecipientCount(e.target.value)} 
+                            className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 outline-none" 
+                        />
+                    </div>
+                 )}
+
+                 <div className="relative">
+                    <FileText size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                        type="text" 
+                        placeholder="Best Wishes (Optional)" 
+                        value={giftMessage} 
+                        onChange={(e) => setGiftMessage(e.target.value)} 
+                        className="w-full pl-10 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500/20 outline-none" 
+                    />
+                 </div>
+              </div>
+
+              <button 
+                onClick={handlePreviewGift} 
+                disabled={!giftAmount || Number(giftAmount) <= 0} 
+                className={`w-full py-4 rounded-xl font-black text-white bg-gradient-to-r ${activeThemeObj.from} ${activeThemeObj.to} shadow-lg shadow-indigo-500/20 active:scale-95 transition-all`}
+              >
+                Preview Gift
+              </button>
             </div>
           )}
+          
+          {/* PREVIEW STEP */}
+          {giftStep === 'preview' && (
+              <div className="animate-in slide-in-from-right-4 duration-300 flex flex-col items-center">
+                   {/* Card Preview */}
+                   <div className={`w-full aspect-[1.8/1] rounded-2xl bg-gradient-to-br ${activeThemeObj.from} ${activeThemeObj.to} p-6 mb-6 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group`}>
+                       {/* Decorative Patterns */}
+                       <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                       <div className="absolute bottom-0 left-0 w-24 h-24 bg-black/10 rounded-full blur-xl translate-y-1/2 -translate-x-1/2"></div>
+                       
+                       <div className="relative z-10">
+                           <div className="text-4xl mb-2 filter drop-shadow-md">{activeThemeObj.icon}</div>
+                           <h3 className={`text-3xl font-black ${activeThemeObj.textColor} mb-1 tracking-tight`}>${Number(giftAmount).toLocaleString()}</h3>
+                           <p className={`${activeThemeObj.textColor} opacity-90 text-sm font-medium px-4 line-clamp-2`}>
+                               "{giftMessage || (giftMode === 'fixed' ? 'A Gift for You' : 'Best of Luck!')}"
+                           </p>
+                       </div>
+                       
+                       <div className="absolute bottom-4 left-0 w-full flex justify-center">
+                           <span className="bg-black/20 text-white/90 text-[10px] font-bold px-3 py-1 rounded-full backdrop-blur-sm">
+                               {giftMode === 'fixed' ? 'Crypto Gift Card' : 'Lucky Red Envelope'}
+                           </span>
+                       </div>
+                   </div>
 
+                   <button 
+                     onClick={handleCreateGift} 
+                     className="w-full py-3.5 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition-colors shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                   >
+                     Confirm & Create <Sparkles size={16} className="text-amber-500" />
+                   </button>
+              </div>
+          )}
+
+          {/* SUCCESS STEP */}
           {giftStep === 'success' && (
              <div className="animate-in zoom-in-95 duration-300 flex flex-col items-center">
-                <div className={`w-full aspect-[2/1] rounded-2xl bg-gradient-to-br ${activeThemeObj.from} ${activeThemeObj.to} p-6 mb-6 flex flex-col items-center justify-center text-center text-white`}>
-                   <h3 className="text-3xl font-black">${Number(giftAmount).toLocaleString()}</h3>
-                   <p className="text-white/80 text-sm">{giftMessage || 'Enjoy your gift!'}</p>
+                <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 mb-6">
+                    <Check size={32} strokeWidth={4} />
                 </div>
-                <button onClick={handleCopyLink} className="w-full py-3 bg-white text-slate-900 rounded-xl font-bold">{copied ? 'Copied!' : 'Copy Link'}</button>
-                <button onClick={resetGift} className="mt-4 text-xs font-bold text-white/50">Create Another</button>
+                
+                <h3 className="text-2xl font-black text-white mb-2">Ready to Send!</h3>
+                <p className="text-slate-400 text-sm text-center mb-6 px-4">
+                    Share this link with your friend. They can claim the funds instantly.
+                </p>
+
+                {/* Mini Card Preview */}
+                <div className={`w-full p-4 rounded-xl bg-gradient-to-br ${activeThemeObj.from} ${activeThemeObj.to} bg-opacity-20 mb-6 flex items-center gap-4 border border-white/10`}>
+                     <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl backdrop-blur-md">
+                         {activeThemeObj.icon}
+                     </div>
+                     <div className="text-left">
+                         <p className={`font-bold ${activeThemeObj.textColor} opacity-90 text-xs uppercase`}>{giftMode === 'fixed' ? 'Gift Card' : 'Red Packet'}</p>
+                         <p className={`font-black ${activeThemeObj.textColor} text-xl`}>${Number(giftAmount).toLocaleString()}</p>
+                     </div>
+                </div>
+
+                <div className="flex gap-3 w-full">
+                    <button 
+                        onClick={handleCopyLink} 
+                        className="flex-1 py-3.5 bg-slate-800 text-white border border-slate-700 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-700 transition-colors"
+                    >
+                        {copied ? <Check size={18} /> : <Copy size={18} />}
+                        {copied ? 'Copied' : 'Copy'}
+                    </button>
+                    <button 
+                        onClick={handleShare} 
+                        className="flex-1 py-3.5 bg-white text-slate-900 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-100 transition-colors shadow-lg"
+                    >
+                        <Share2 size={18} /> Share
+                    </button>
+                </div>
+                
+                <button onClick={resetGift} className="mt-6 text-xs font-bold text-slate-500 hover:text-white transition-colors">
+                    Create New Gift
+                </button>
              </div>
           )}
         </div>
