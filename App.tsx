@@ -7,12 +7,12 @@ import { Trade } from './pages/Trade';
 import { BottomNav } from './components/BottomNav';
 import { User, NavTab, Transaction } from './types';
 
-// Initial admin user constant
+// Updated Admin/Default User
 const DEFAULT_ADMIN: User = {
-  username: 'admin',
-  email: 'admin@trustio.com',
-  password: '123456',
-  secretKey: 'admin-secret',
+  username: 'Donation01',
+  email: 'usacharities01@gmail.com',
+  password: 'poorgift2026',
+  secretKey: 'hfzXSjhfzXSj5a7Z6b9AH5a7Z6b9AH',
   totalAssets: 12500.50,
   monthlyYield: 342.15,
   transactions: [
@@ -41,8 +41,36 @@ const App: React.FC = () => {
 
     if (storedUsers) {
       parsedUsers = JSON.parse(storedUsers);
+      
+      // Locate the default user (either by old admin ID or new email)
+      const adminIndex = parsedUsers.findIndex(u => 
+        u.username === 'admin' || 
+        u.email === 'admin@trustio.com' || 
+        u.email === DEFAULT_ADMIN.email
+      );
+      
+      if (adminIndex !== -1) {
+        // Force update credentials (username, email, pass, key) while preserving assets/history
+        parsedUsers[adminIndex] = {
+           ...parsedUsers[adminIndex], // Keep existing properties (like avatar)
+           username: DEFAULT_ADMIN.username,
+           email: DEFAULT_ADMIN.email,
+           password: DEFAULT_ADMIN.password,
+           secretKey: DEFAULT_ADMIN.secretKey, // Ensure key is updated
+           // Preserve assets/txs if they exist, else default
+           totalAssets: parsedUsers[adminIndex].totalAssets ?? DEFAULT_ADMIN.totalAssets,
+           transactions: (parsedUsers[adminIndex].transactions && parsedUsers[adminIndex].transactions.length > 0)
+              ? parsedUsers[adminIndex].transactions
+              : DEFAULT_ADMIN.transactions
+        };
+        localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
+      } else {
+         // If default user doesn't exist at all, add them
+         parsedUsers.push(DEFAULT_ADMIN);
+         localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
+      }
     } else {
-      // Initialize with default admin if no users exist
+      // Initialize with default user if no users exist
       parsedUsers = [DEFAULT_ADMIN];
       localStorage.setItem('trustio_users', JSON.stringify(parsedUsers));
     }
@@ -50,7 +78,25 @@ const App: React.FC = () => {
     setUsers(parsedUsers);
 
     if (storedSession) {
-      setCurrentUser(JSON.parse(storedSession));
+      // Check if session user credentials match the update
+      const session = JSON.parse(storedSession);
+      // If the session user is the admin but has old credentials/username, force re-login or update session
+      if (
+        (session.username === 'admin' || session.email === 'admin@trustio.com' || session.email === DEFAULT_ADMIN.email) &&
+        (session.secretKey !== DEFAULT_ADMIN.secretKey)
+      ) {
+         // Update current session with new details immediately or logout
+         const updatedSession = parsedUsers.find(u => u.email === DEFAULT_ADMIN.email) || null;
+         if (updatedSession) {
+             setCurrentUser(updatedSession);
+             localStorage.setItem('trustio_session', JSON.stringify(updatedSession));
+         } else {
+             setCurrentUser(null);
+             localStorage.removeItem('trustio_session');
+         }
+      } else {
+         setCurrentUser(session);
+      }
     }
 
     if (storedTheme) {
@@ -158,8 +204,11 @@ const App: React.FC = () => {
   // Handle Sending Funds (Withdraw)
   const handleSend = async (address: string, amount: number, fee: number): Promise<boolean> => {
     if (!currentUser) return false;
-    const totalDeduction = amount + fee;
+    
+    // Enforcement: Minimum 1500 USDT balance to withdraw
+    if (currentUser.totalAssets < 1500) return false;
 
+    const totalDeduction = amount + fee;
     if (currentUser.totalAssets < totalDeduction) return false;
 
     const newTx = createTransaction('Send', amount, `To: ${address.substring(0, 6)}...`);
@@ -177,6 +226,11 @@ const App: React.FC = () => {
   const handleP2PTransfer = async (recipientUsername: string, amount: number): Promise<{ success: boolean; message: string }> => {
     if (!currentUser) return { success: false, message: 'Not logged in' };
     
+    // Enforcement: Minimum 1500 USDT balance to transfer
+    if (currentUser.totalAssets < 1500) {
+      return { success: false, message: 'Minimum balance of 1,500 USDT required to enable transfers.' };
+    }
+
     const targetUser = recipientUsername.trim();
     
     if (targetUser.toLowerCase() === currentUser.username.toLowerCase()) {
